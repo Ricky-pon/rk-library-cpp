@@ -1,0 +1,33 @@
+# Google スタイルをベースに、関数の { だけ改行する
+BasedOnStyle: Google
+IndentWidth: 4
+AccessModifierOffset: -4            # アクセス修飾子はインデントしない
+SpaceAfterTemplateKeyword: false    # template<class T>（< の前に空白を入れない）
+ReflowComments: IndentOnly          # コメントを折り返さない
+
+# 波括弧：関数では { を改行し、struct や if/for は同じ行に書く
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterFunction: true
+
+# クラス内の短い関数のみ 1 行に省略可
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+
+# 波括弧が省略された if/for に自動で括弧をつける
+InsertBraces: true
+
+# 関数などの定義の間に空行を入れる
+SeparateDefinitionBlocks: Always
+
+# コンストラクタの初期化子：収まれば 1 行、収まらなければ 1 行に 1 つで末尾カンマ
+BreakConstructorInitializers: BeforeColon
+PackConstructorInitializers: CurrentLine
+
+# ポインタと参照は型の側につける
+DerivePointerAlignment: false
+PointerAlignment: Left
+
+# include は空行で区切ったグループの中だけで並べ替える
+IncludeBlocks: Preserve
