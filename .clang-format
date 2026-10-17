@@ -9,6 +9,7 @@ ReflowComments: IndentOnly          # コメントを折り返さない
 BreakBeforeBraces: Custom
 BraceWrapping:
   AfterFunction: true
+  BeforeElse: true
 
 # クラス内の短い関数のみ 1 行に省略可
 AllowShortFunctionsOnASingleLine: Inline
@@ -18,8 +19,8 @@ AllowShortLoopsOnASingleLine: false
 # 波括弧が省略された if/for に自動で括弧をつける
 InsertBraces: true
 
-# 関数などの定義の間に空行を入れる
-SeparateDefinitionBlocks: Always
+# 関数などの定義の間の空行は書いた通りに残す
+SeparateDefinitionBlocks: Leave
 
 # コンストラクタの初期化子：収まれば 1 行、収まらなければ 1 行に 1 つで末尾カンマ
 BreakConstructorInitializers: BeforeColon
