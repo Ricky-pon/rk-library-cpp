@@ -15,16 +15,17 @@ namespace geo {
 
 // 座標に使える数の型。int, long long, __int128, Rational, double, long double など
 template<class T>
-concept Scalar = std::totally_ordered<T> && requires(T a, T b) {
-    T(0);
-    { a + b } -> std::convertible_to<T>;
-    { a - b } -> std::convertible_to<T>;
-    { a * b } -> std::convertible_to<T>;
-    { a += b } -> std::convertible_to<T>;
-    { a -= b } -> std::convertible_to<T>;
-    { a *= b } -> std::convertible_to<T>;
-    { -a } -> std::convertible_to<T>;
-};
+concept Scalar = std::totally_ordered<T> && !std::unsigned_integral<T> &&
+                 requires(T a, T b) {
+                     T(0);
+                     { a + b } -> std::convertible_to<T>;
+                     { a - b } -> std::convertible_to<T>;
+                     { a * b } -> std::convertible_to<T>;
+                     { a += b } -> std::convertible_to<T>;
+                     { a -= b } -> std::convertible_to<T>;
+                     { a *= b } -> std::convertible_to<T>;
+                     { -a } -> std::convertible_to<T>;
+                 };
 
 // is_float           : 浮動小数点数か（比較に eps を使うか）
 // has_exact_division : 割り算が正確か（交点などを求められるか）
