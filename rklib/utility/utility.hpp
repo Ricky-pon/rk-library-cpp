@@ -31,20 +31,22 @@ bool chmin(T& a, const U& b)
 template<class T>
 T div_floor(T num, T den)
 {
-    if (den < 0) {
-        num = -num, den = -den;
+    T q = num / den;
+    if (num % den != 0 && ((num < 0) != (den < 0))) {
+        --q;
     }
-    return num >= 0 ? num / den : (num + 1) / den - 1;
+    return q;
 }
 
 // ceil(num / den)
 template<class T>
 T div_ceil(T num, T den)
 {
-    if (den < 0) {
-        num = -num, den = -den;
+    T q = num / den;
+    if (num % den != 0 && ((num < 0) == (den < 0))) {
+        ++q;
     }
-    return num <= 0 ? num / den : (num - 1) / den + 1;
+    return q;
 }
 
 }  // namespace rklib
