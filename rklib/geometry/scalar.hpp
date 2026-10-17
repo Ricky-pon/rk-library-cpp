@@ -4,6 +4,8 @@
 #include <concepts>
 #include <type_traits>
 
+#include "rklib/number/wide.hpp"
+
 namespace rklib {
 
 template<class T>
@@ -31,23 +33,7 @@ template<Scalar T>
 struct ScalarTraits {
     static constexpr bool is_float = std::is_floating_point_v<T>;
     static constexpr bool has_exact_division = std::is_floating_point_v<T>;
-    using wide = T;
-};
-
-template<class T>
-    requires Scalar<T> && std::signed_integral<T> && (sizeof(T) <= 4)
-struct ScalarTraits<T> {
-    static constexpr bool is_float = false;
-    static constexpr bool has_exact_division = false;
-    using wide = long long;
-};
-
-template<class T>
-    requires Scalar<T> && std::signed_integral<T> && (sizeof(T) == 8)
-struct ScalarTraits<T> {
-    static constexpr bool is_float = false;
-    static constexpr bool has_exact_division = false;
-    using wide = __int128;
+    using wide = wide_t<T>;
 };
 
 template<class U>
