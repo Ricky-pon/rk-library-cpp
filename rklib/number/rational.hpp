@@ -14,13 +14,13 @@ namespace rklib {
 // 途中の積が T に収まる範囲で正しい。比較だけは wide_t<T> で計算する
 template<class T = long long>
 struct Rational {
-    Rational() : num(0), den(1) {}
-    Rational(T n) : num(n), den(1) {}
-    Rational(T n, T d) : num(n), den(d)
+    Rational() : num_(0), den_(1) {}
+    Rational(T n) : num_(n), den_(1) {}
+    Rational(T n, T d) : num_(n), den_(d)
     {
-        assert(den != T(0));
-        if (den < T(0)) {
-            num = -num, den = -den;
+        assert(den_ != T(0));
+        if (den_ < T(0)) {
+            num_ = -num_, den_ = -den_;
         }
         reduce();
     }
@@ -28,99 +28,99 @@ struct Rational {
     template<std::floating_point U>
     Rational(U) = delete;
 
-    T numerator() const { return num; }
-    T denominator() const { return den; }
+    T numerator() const { return num_; }
+    T denominator() const { return den_; }
 
     Rational& operator+=(const Rational& rhs)
     {
-        if (den == rhs.den) {
-            num += rhs.num;
+        if (den_ == rhs.den_) {
+            num_ += rhs.num_;
             reduce();
             return *this;
         }
-        T r_den = rhs.den;
-        if (den == T(1) || r_den == T(1)) {
+        T r_den = rhs.den_;
+        if (den_ == T(1) || r_den == T(1)) {
             // 分母の一方が 1 なら、結果はすでに既約
-            num = num * r_den + rhs.num * den;
-            den *= r_den;
+            num_ = num_ * r_den + rhs.num_ * den_;
+            den_ *= r_den;
             return *this;
         }
-        T g = gcd_of(den, r_den);
-        den /= g;
-        num = num * (r_den / g) + rhs.num * den;
-        g = gcd_of(num, g);
-        num /= g;
-        den *= r_den / g;
+        T g = gcd_of(den_, r_den);
+        den_ /= g;
+        num_ = num_ * (r_den / g) + rhs.num_ * den_;
+        g = gcd_of(num_, g);
+        num_ /= g;
+        den_ *= r_den / g;
         return *this;
     }
     Rational& operator-=(const Rational& rhs)
     {
-        if (den == rhs.den) {
-            num -= rhs.num;
+        if (den_ == rhs.den_) {
+            num_ -= rhs.num_;
             reduce();
             return *this;
         }
-        T r_den = rhs.den;
-        if (den == T(1) || r_den == T(1)) {
+        T r_den = rhs.den_;
+        if (den_ == T(1) || r_den == T(1)) {
             // 分母の一方が 1 なら、結果はすでに既約
-            num = num * r_den - rhs.num * den;
-            den *= r_den;
+            num_ = num_ * r_den - rhs.num_ * den_;
+            den_ *= r_den;
             return *this;
         }
-        T g = gcd_of(den, r_den);
-        den /= g;
-        num = num * (r_den / g) - rhs.num * den;
-        g = gcd_of(num, g);
-        num /= g;
-        den *= r_den / g;
+        T g = gcd_of(den_, r_den);
+        den_ /= g;
+        num_ = num_ * (r_den / g) - rhs.num_ * den_;
+        g = gcd_of(num_, g);
+        num_ /= g;
+        den_ *= r_den / g;
         return *this;
     }
     Rational& operator*=(const Rational& rhs)
     {
-        T r_num = rhs.num;
-        T r_den = rhs.den;
+        const T r_num = rhs.num_;
+        const T r_den = rhs.den_;
 
-        if (den == T(1) && r_den == T(1)) {
-            num *= r_num;
+        if (den_ == T(1) && r_den == T(1)) {
+            num_ *= r_num;
             return *this;
         }
         if (r_den == T(1)) {
-            T g = gcd_of(r_num, den);
-            num *= r_num / g;
-            den /= g;
+            T g = gcd_of(r_num, den_);
+            num_ *= r_num / g;
+            den_ /= g;
             return *this;
         }
-        if (den == T(1)) {
-            T g = gcd_of(num, r_den);
-            num = (num / g) * r_num;
-            den = r_den / g;
+        if (den_ == T(1)) {
+            T g = gcd_of(num_, r_den);
+            num_ = (num_ / g) * r_num;
+            den_ = r_den / g;
             return *this;
         }
 
-        T g1 = gcd_of(num, r_den);
-        T g2 = gcd_of(r_num, den);
-        num = (num / g1) * (r_num / g2);
-        den = (den / g2) * (r_den / g1);
+        T g1 = gcd_of(num_, r_den);
+        T g2 = gcd_of(r_num, den_);
+        num_ = (num_ / g1) * (r_num / g2);
+        den_ = (den_ / g2) * (r_den / g1);
         return *this;
     }
     Rational& operator/=(const Rational& rhs)
     {
-        T r_num = rhs.num;
-        T r_den = rhs.den;
+        const T r_num = rhs.num_;
+        const T r_den = rhs.den_;
 
         assert(r_num != T(0));
-        if (num == T(0)) {
+        if (num_ == T(0)) {
             return *this;
         }
 
-        T gcd1 = gcd_of(num, r_num);
-        T gcd2 = (den == T(1) || r_den == T(1)) ? T(1) : gcd_of(r_den, den);
-        num = (num / gcd1) * (r_den / gcd2);
-        den = (den / gcd2) * (r_num / gcd1);
+        T gcd1 = gcd_of(num_, r_num);
+        T gcd2 = (den_ == T(1) || r_den == T(1)) ? T(1) : gcd_of(r_den, den_);
+        num_ = (num_ / gcd1) * (r_den / gcd2);
+        den_ = (den_ / gcd2) * (r_num / gcd1);
 
-        if (den < T(0)) {
-            num = -num;
-            den = -den;
+        if (den_ < T(0)) {
+            num_ = -num_;
+            den_ = -den_;
         }
         return *this;
     }
@@ -143,16 +143,16 @@ struct Rational {
     }
 
     Rational operator+() const { return *this; }
-    Rational operator-() const { return Rational(-num, den, Reduced{}); }
+    Rational operator-() const { return Rational(-num_, den_, Reduced{}); }
 
     Rational& operator++()
     {
-        num += den;
+        num_ += den_;
         return *this;
     }
     Rational& operator--()
     {
-        num -= den;
+        num_ -= den_;
         return *this;
     }
 
@@ -162,7 +162,7 @@ struct Rational {
                                             const Rational& rhs)
     {
         using W = wide_t<T>;
-        const W l = W(lhs.num) * W(rhs.den), r = W(rhs.num) * W(lhs.den);
+        const W l = W(lhs.num_) * W(rhs.den_), r = W(rhs.num_) * W(lhs.den_);
         if (l < r) {
             return std::strong_ordering::less;
         }
@@ -174,34 +174,34 @@ struct Rational {
 
     friend std::ostream& operator<<(std::ostream& os, const Rational& r)
     {
-        if (r.den == T(1)) {
-            return os << r.num;
+        if (r.den_ == T(1)) {
+            return os << r.num_;
         }
-        return os << r.num << "/" << r.den;
+        return os << r.num_ << "/" << r.den_;
     }
 
-    explicit operator double() const { return double(num) / double(den); }
+    explicit operator double() const { return double(num_) / double(den_); }
     explicit operator long double() const
     {
-        return (long double)num / (long double)den;
+        return (long double)num_ / (long double)den_;
     }
 
 private:
-    T num, den;
+    T num_, den_;
 
     // 約分済みの値から作る（gcd の計算を省く）
     struct Reduced {};
-    Rational(T n, T d, Reduced) : num(n), den(d) {}
+    Rational(T n, T d, Reduced) : num_(n), den_(d) {}
 
     // 分母が正であることを前提に約分する
     void reduce()
     {
-        if (den == T(1)) {
+        if (den_ == T(1)) {
             return;
         }
-        T g = gcd_of(num, den);
-        num /= g;
-        den /= g;
+        T g = gcd_of(num_, den_);
+        num_ /= g;
+        den_ /= g;
     }
 
     static T gcd_of(const T& a, const T& b)
