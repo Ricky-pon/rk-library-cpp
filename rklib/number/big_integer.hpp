@@ -22,8 +22,14 @@ namespace rklib {
 struct BigInteger {
 public:
     BigInteger() : BigInteger(0) {}
+    // bool は組み込みの整数と同じく 0, 1 として扱う。
+    // wide_t<bool> は bool のままで繰り上がりを計算できないため、int にしてから作る
     template<std::integral T>
-    BigInteger(T x) : BigInteger(from_digits(std::vector<wide_t<T>>{x}))
+    BigInteger(T x)
+        : BigInteger(from_digits(
+              std::vector<
+                  wide_t<std::conditional_t<std::same_as<T, bool>, int, T>>>{
+                  x}))
     {
     }
     explicit BigInteger(std::string_view s) : BigInteger(from_string(s)) {}

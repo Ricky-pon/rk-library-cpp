@@ -17,7 +17,7 @@ namespace geo {
 template<class T>
 concept Scalar = std::totally_ordered<T> && !std::unsigned_integral<T> &&
                  requires(T a, T b) {
-                     T(0);
+                     requires std::convertible_to<int, T>;
                      { a + b } -> std::convertible_to<T>;
                      { a - b } -> std::convertible_to<T>;
                      { a * b } -> std::convertible_to<T>;
@@ -63,6 +63,7 @@ void set_eps(std::type_identity_t<T> new_eps)
     eps<T> = new_eps;
 }
 
+// 符号を求める。浮動小数点数の場合は eps 込み
 template<class T>
 int sgn(const T& x)
 {
@@ -95,6 +96,7 @@ T scalar_abs(const T& x)
 }
 
 // x < y なら -1, x == y なら 0, x > y なら 1
+// 浮動小数点数の場合は eps 込み
 template<Scalar T, Scalar U>
     requires std::common_with<T, U>
 int compare(const T& x, const U& y)

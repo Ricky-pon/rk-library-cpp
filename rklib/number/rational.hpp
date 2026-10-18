@@ -16,6 +16,13 @@ template<class T = long long>
 struct Rational {
     Rational() : num_(0), den_(1) {}
     Rational(T n) : num_(n), den_(1) {}
+    // T が BigInteger などの場合、int -> T -> Rational の 2 段の変換は暗黙には
+    // 行われないため、整数から直接作れるようにする
+    template<std::integral U>
+        requires(!std::same_as<U, T> && std::constructible_from<T, U>)
+    Rational(U n) : Rational(T(n))
+    {
+    }
     Rational(T n, T d) : num_(n), den_(d)
     {
         assert(den_ != T(0));
