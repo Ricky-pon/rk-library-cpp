@@ -102,7 +102,7 @@ struct BasicPoint {
         requires(!FloatScalar<T>)
     friend void operator/(const BasicPoint&, const U&) = delete;
 
-    // 誤差を考えずに比べる（ソートや map のキー用）。誤差を考えるときは eq を使う
+    // 誤差を考えずに比べる（ソートや map のキー用）。誤差を考えるときは eq や lex_less を使う
     auto operator<=>(const BasicPoint&) const = default;
 };
 
@@ -273,6 +273,15 @@ template<class T, class W>
 bool is_orthogonal(const BasicVec<T, W>& v, const BasicVec<T, W>& w)
 {
     return sgn(dot(v, w)) == 0;
+}
+
+// (x, y) の辞書順で p < q か（浮動小数点数では誤差を考慮）
+// 浮動小数点数では、比べる値に差が eps 以下の値が連なっていると、狭義弱順序にならない
+// （a と b、b と c の差は eps 以下だが、a と c の差は eps を超えるようなケース）
+template<class T, class W>
+bool lex_less(const BasicPoint<T, W>& p, const BasicPoint<T, W>& q)
+{
+    return eq(p.x, q.x) ? lt(p.y, q.y) : lt(p.x, q.x);
 }
 
 // 偏角を (-π, π] の範囲で比較する。
