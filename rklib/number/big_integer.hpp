@@ -49,26 +49,13 @@ public:
             naive_multiply_threshold) {
             v_ = multiply_naive(v_, rhs.v_);
         }
-        else if (std::max(v_.size(), rhs.v_.size()) > ntt_multiply_threshold &&
-                 v_.size() + rhs.v_.size() - 1 <= (1 << 24)) {
+        else if (std::min(v_.size(), rhs.v_.size()) > ntt_multiply_threshold) {
             v_ = multiply_ntt(v_, rhs.v_);
         }
         else {
-            std::vector<long long> a(v_.size()), b(rhs.v_.size());
-            for (size_t i = 0; i < a.size(); i++) {
-                a[i] = (long long)v_[i];
-            }
-            for (size_t i = 0; i < b.size(); i++) {
-                b[i] = (long long)rhs.v_[i];
-            }
-            int sz = 1;
-            while (sz < int(a.size()) || sz < int(b.size())) {
-                sz *= 2;
-            }
-            a.resize(sz, 0);
-            b.resize(sz, 0);
-
-            this->v_ = carry_digits(multiply_karatsuba(a, b));
+            v_ = carry_digits(multiply_karatsuba(
+                std::vector<long long>(v_.begin(), v_.end()),
+                std::vector<long long>(rhs.v_.begin(), rhs.v_.end())));
         }
 
         this->sgn_ = res_sgn;
@@ -77,29 +64,13 @@ public:
     }
     BigInteger& operator/=(const BigInteger& rhs)
     {
-        int rhs_sign = rhs.sgn_;
-        assert(rhs_sign != 0);
-        if (sgn_ == 0) {
-            return *this;
-        }
-        if (rhs == BigInteger(1) || rhs == BigInteger(-1)) {
-            sgn_ *= rhs_sign;
-            return *this;
-        }
-
-        int res_sgn = sgn_ * rhs_sign;
-
-        (*this) = divide_newton_raphson(*this, rhs);
-
-        this->sgn_ = (this->v_.back() == 0 ? 0 : res_sgn);
-
+        *this = divmod(*this, rhs).first;
         return *this;
     }
     BigInteger& operator%=(const BigInteger& rhs)
     {
-        assert(rhs.sgn_ != 0);
-
-        return *this = (*this) - (*this) / rhs * rhs;
+        *this = divmod(*this, rhs).second;
+        return *this;
     }
 
     friend BigInteger operator+(const BigInteger& lhs, const BigInteger& rhs)
@@ -122,6 +93,19 @@ public:
     {
         return BigInteger(lhs) %= rhs;
     }
+    // 商と余り。商は 0 方向に丸め、余りの符号は lhs と同じ（組み込みの整数と同じ）
+    friend std::pair<BigInteger, BigInteger> divmod(const BigInteger& lhs,
+                                                    const BigInteger& rhs)
+    {
+        assert(rhs.sgn_ != 0);
+        if (lhs.sgn_ == 0) {
+            return {0, 0};
+        }
+        auto [q, r] = divmod_abs(abs(lhs), abs(rhs));
+        q.sgn_ *= lhs.sgn_ * rhs.sgn_;
+        r.sgn_ *= lhs.sgn_;
+        return {std::move(q), std::move(r)};
+    }
 
     BigInteger operator+() const { return *this; }
     BigInteger operator-() const { return {-sgn_, v_}; }
@@ -129,18 +113,21 @@ public:
     BigInteger& operator++() { return *this += 1; }
     BigInteger& operator--() { return *this -= 1; }
 
-    friend bool operator==(const BigInteger& lhs, const BigInteger& rhs)
+    BigInteger operator++(int)
     {
-        if (lhs.sgn_ != rhs.sgn_ || lhs.v_.size() != rhs.v_.size()) {
-            return false;
-        }
-        for (size_t i = 0; i < lhs.v_.size(); i++) {
-            if (lhs.v_[i] != rhs.v_[i]) {
-                return false;
-            }
-        }
-        return true;
+        BigInteger res = *this;
+        ++*this;
+        return res;
     }
+    BigInteger operator--(int)
+    {
+        BigInteger res = *this;
+        --*this;
+        return res;
+    }
+
+    friend bool operator==(const BigInteger& lhs,
+                           const BigInteger& rhs) = default;
     friend std::strong_ordering operator<=>(const BigInteger& lhs,
                                             const BigInteger& rhs)
     {
@@ -175,8 +162,9 @@ public:
     friend std::istream& operator>>(std::istream& is, BigInteger& rhs)
     {
         std::string s;
-        is >> s;
-        rhs = BigInteger(s);
+        if (is >> s) {
+            rhs = BigInteger(s);
+        }
         return is;
     }
     friend std::ostream& operator<<(std::ostream& os, const BigInteger& rhs)
@@ -195,16 +183,8 @@ public:
         return os;
     }
 
-    explicit operator double() const
-    {
-        double res = 0;
-        for (int i = v_.size() - 1; i >= 0; i--) {
-            res = res * base + v_[i];
-        }
-        res *= sgn_;
-        return res;
-    }
-    explicit operator long double() const
+    template<std::floating_point T>
+    explicit operator T() const
     {
         long double res = 0;
         for (int i = v_.size() - 1; i >= 0; i--) {
@@ -222,25 +202,31 @@ public:
         return x;
     }
 
-    friend BigInteger gcd(BigInteger a, BigInteger b)
+    template<class T, class U>
+        requires(std::same_as<T, BigInteger> || std::same_as<U, BigInteger>) &&
+                std::convertible_to<T, BigInteger> &&
+                std::convertible_to<U, BigInteger>
+    friend BigInteger gcd(T a, U b)
     {
-        a = abs(std::move(a));
-        b = abs(std::move(b));
-        while (b.sgn_ != 0) {
-            a %= b;
-            std::swap(a, b);
+        BigInteger x = abs(BigInteger(std::move(a)));
+        BigInteger y = abs(BigInteger(std::move(b)));
+        while (y.sgn_ != 0) {
+            x %= y;
+            std::swap(x, y);
         }
-        return a;
+        return x;
     }
 
 private:
     static constexpr int base = 10000, log10_base = 4;
     static constexpr int naive_multiply_threshold = 75,
-                         ntt_multiply_threshold = 4000;
+                         ntt_multiply_threshold = 2000;
     int sgn_;
     std::vector<int> v_;
 
     BigInteger(int sgn, std::vector<int> v) : sgn_(sgn), v_(std::move(v)) {}
+
+    // ---- 正規化・文字列からの変換 ----
 
     // 各桁の値が a (下の位から)である数を作る。
     // ただし、0 でない最上位の桁の符号が、数全体の符号と一致すること
@@ -301,6 +287,8 @@ private:
         return from_digits(std::move(digits));
     }
 
+    // ---- 足し算・引き算 ----
+
     BigInteger& add(const BigInteger& rhs, const int rhs_sign)
     {
         if (rhs_sign == 0) {
@@ -328,6 +316,8 @@ private:
         return *this;
     }
 
+    // ---- 掛け算 ----
+
     static std::vector<int> multiply_naive(const std::vector<int>& a,
                                            const std::vector<int>& b)
     {
@@ -343,118 +333,222 @@ private:
     static std::vector<int> multiply_ntt(const std::vector<int>& a,
                                          const std::vector<int>& b)
     {
-        std::vector<long long> al(a.size()), bl(b.size());
-        for (size_t i = 0; i < a.size(); i++) {
-            al[i] = (long long)a[i];
-        }
-        for (size_t i = 0; i < b.size(); i++) {
-            bl[i] = (long long)b[i];
-        }
-
-        std::vector<long long> c = atcoder::convolution_ll(al, bl);
-
-        return carry_digits(c);
+        // convolution_ll で計算できる長さの上限
+        assert(a.size() + b.size() - 1 <= (1 << 24));
+        return carry_digits(atcoder::convolution_ll(
+            std::vector<long long>(a.begin(), a.end()),
+            std::vector<long long>(b.begin(), b.end())));
     }
+    // 短い方が ntt_multiply_threshold 桁以下で使う。
+    // a0 + a1 のように足してから掛けるので値は段ごとに最大 2 倍になるが、
+    // 半分に分ける段数は log2(ntt_multiply_threshold / naive_multiply_threshold)
+    // 程度なので long long に収まる
     static std::vector<long long> multiply_karatsuba(std::vector<long long> a,
                                                      std::vector<long long> b)
     {
-        int na = a.size(), nb = b.size();
-        if (std::min(na, nb) <= naive_multiply_threshold) {
-            std::vector<long long> res(a.size() + b.size() - 1, 0);
-            for (size_t i = 0; i < a.size(); i++) {
-                for (size_t j = 0; j < b.size(); j++) {
+        const int na = a.size(), nb = b.size();
+        if (na < nb) {
+            return multiply_karatsuba(b, a);
+        }
+        if (nb <= naive_multiply_threshold) {
+            std::vector<long long> res(na + nb - 1, 0);
+            for (int i = 0; i < na; i++) {
+                for (int j = 0; j < nb; j++) {
                     res[i + j] += a[i] * b[j];
                 }
             }
             return res;
         }
 
-        int n = std::max(na, nb);
-        if (na < n) {
-            a.resize(n, 0);
-        }
-        if (nb < n) {
-            b.resize(n, 0);
-        }
-
-        int k = n / 2;
-        std::vector<long long> x(
-            std::vector<long long>(a.begin() + k, a.end()));
-        std::vector<long long> y(
-            std::vector<long long>(a.begin(), a.begin() + k));
-        std::vector<long long> z(
-            std::vector<long long>(b.begin() + k, b.end()));
-        std::vector<long long> w(
-            std::vector<long long>(b.begin(), b.begin() + k));
-
-        std::vector<long long> xz = multiply_karatsuba(x, z);
-        std::vector<long long> yw = multiply_karatsuba(y, w);
-
-        for (int i = 0; i < k; i++) {
-            x[i] += y[i];
-            z[i] += w[i];
-        }
-        std::vector<long long> t = multiply_karatsuba(x, z);
-        for (size_t i = 0; i < xz.size(); i++) {
-            t[i] -= xz[i] + yw[i];
+        // a = a1 base^k + a0, b = b1 base^k + b0 (a0, b0 は k 桁)
+        const int k = (na + 1) / 2;
+        std::vector<long long> res(na + nb - 1, 0);
+        auto add_to = [&](const std::vector<long long>& v, int shift) {
+            for (size_t i = 0; i < v.size(); i++) {
+                res[shift + i] += v[i];
+            }
+        };
+        const std::vector<long long> a0(a.begin(), a.begin() + k),
+            a1(a.begin() + k, a.end());
+        if (nb <= k) {
+            // b が a の半分以下の長さなら、a だけを分ける
+            add_to(multiply_karatsuba(a0, b), 0);
+            add_to(multiply_karatsuba(a1, b), k);
+            return res;
         }
 
-        a = std::vector<long long>(2 * k, 0);
-        a.insert(a.end(), xz.begin(), xz.end());
-        b = std::vector<long long>(k, 0);
-        b.insert(b.end(), t.begin(), t.end());
-
-        for (size_t i = 0; i < b.size(); i++) {
-            a[i] += b[i];
+        const std::vector<long long> b0(b.begin(), b.begin() + k),
+            b1(b.begin() + k, b.end());
+        const std::vector<long long> z0 = multiply_karatsuba(a0, b0);
+        const std::vector<long long> z2 = multiply_karatsuba(a1, b1);
+        // z1 = (a0 + a1)(b0 + b1) - z0 - z2
+        std::vector<long long> s = a0, t = b0;
+        for (size_t i = 0; i < a1.size(); i++) {
+            s[i] += a1[i];
         }
-        for (size_t i = 0; i < yw.size(); i++) {
-            a[i] += yw[i];
+        for (size_t i = 0; i < b1.size(); i++) {
+            t[i] += b1[i];
+        }
+        std::vector<long long> z1 = multiply_karatsuba(s, t);
+        for (size_t i = 0; i < z0.size(); i++) {
+            z1[i] -= z0[i];
+        }
+        for (size_t i = 0; i < z2.size(); i++) {
+            z1[i] -= z2[i];
         }
 
+        add_to(z0, 0);
+        add_to(z1, k);
+        add_to(z2, 2 * k);
+        return res;
+    }
+
+    // ---- 割り算 ----
+
+    static constexpr int naive_divide_threshold = 128;
+
+    // a * base^d を返す。d < 0 のときは切り捨て
+    static BigInteger shift(BigInteger a, int d)
+    {
+        if (a.sgn_ == 0 || d == 0) {
+            return a;
+        }
+        if (d > 0) {
+            a.v_.insert(a.v_.begin(), d, 0);
+            return a;
+        }
+        if (int(a.v_.size()) <= -d) {
+            return 0;
+        }
+        a.v_.erase(a.v_.begin(), a.v_.begin() - d);
         return a;
     }
 
-    static void shift_right(BigInteger& a, size_t len)
+    // a, b > 0 の商と余り
+    static std::pair<BigInteger, BigInteger> divmod_abs(const BigInteger& a,
+                                                        const BigInteger& b)
     {
-        if (a == BigInteger(0)) {
-            return;
+        if (a < b) {
+            return {0, a};
         }
-        if (a.v_.size() <= len) {
-            a = 0;
-            return;
+        const int n = a.v_.size(), m = b.v_.size();
+        if (m == 1) {
+            return divmod_small(a, b.v_[0]);
         }
-        a.v_.erase(a.v_.begin(), a.v_.begin() + len);
+        if (std::min(m, n - m + 1) <= naive_divide_threshold) {
+            return divmod_naive(a, b);
+        }
+        return divmod_newton(a, b);
     }
 
-    static BigInteger divide_newton_raphson(BigInteger a, BigInteger b)
+    // 1 桁の数 d で割る。O(n)
+    //   n: a を base 進数表記したときの桁数
+    static std::pair<BigInteger, BigInteger> divmod_small(const BigInteger& a,
+                                                          const int d)
     {
-        a.sgn_ = b.sgn_ = 1;
-        if (a < b) {
-            return 0;
+        if (d == 1) {
+            return {a, 0};
         }
-        size_t len = a.v_.size() + 2;
-        BigInteger x = base * base, prv = x;
-        while (true) {
-            BigInteger tmp = x * x * b;
-            shift_right(tmp, len);
-            x += x;
-            x -= tmp;
-            if (x.v_.size() > len) {
-                shift_right(x, x.v_.size() - len);
-            }
+        std::vector<int> q(a.v_.size());
+        int r = 0;
+        for (int i = int(a.v_.size()) - 1; i >= 0; i--) {
+            const int cur = r * base + a.v_[i];
+            q[i] = cur / d;
+            r = cur % d;
+        }
+        return {from_digits(std::move(q)), r};
+    }
 
-            if ((x - prv).v_.size() <= 1) {
-                break;
-            }
-            prv = x;
-        }
-        BigInteger res = a * x;
-        res.v_.erase(res.v_.begin(), res.v_.begin() + len);
-        if (res * b + b <= a) {
-            ++res;
-        }
+    // 筆算。b は 2 桁以上。O((n - m + 1)m)
+    //   n: a を base 進数表記したときの桁数
+    //   m: b を base 進数表記したときの桁数
+    static std::pair<BigInteger, BigInteger> divmod_naive(const BigInteger& a,
+                                                          const BigInteger& b)
+    {
+        const int n = a.v_.size(), m = b.v_.size();
+        const long long b_top = (long long)b.v_[m - 1] * base + b.v_[m - 2];
 
-        return res;
+        // r += coef * b を m + 1 桁で計算し、最上位からあふれた分を返す
+        std::vector<int> r(a.v_.begin() + (n - m + 1), a.v_.end());
+        r.push_back(0);
+        auto add_mul = [&](long long coef) {
+            long long carry = 0;
+            for (int j = 0; j <= m; j++) {
+                const long long cur =
+                    r[j] + carry + (j < m ? coef * b.v_[j] : 0);
+                carry = div_floor(cur, (long long)base);
+                r[j] = int(cur - carry * base);
+            }
+            return carry;
+        };
+        // r >= b か (r は m + 1 桁)
+        auto geq_b = [&]() {
+            if (r[m] != 0) {
+                return true;
+            }
+            for (int j = m - 1; j >= 0; j--) {
+                if (r[j] != b.v_[j]) {
+                    return r[j] > b.v_[j];
+                }
+            }
+            return true;
+        };
+
+        std::vector<int> q(n - m + 1);
+        for (int i = n - m; i >= 0; i--) {
+            // r < b を保ったまま、a の桁を 1 つ下ろす
+            r.insert(r.begin(), a.v_[i]);
+            // r の上位 3 桁 / b の上位 2 桁 で商の桁を見積もる（若干ずれるので後で補正）
+            const long long r_top =
+                ((long long)r[m] * base + r[m - 1]) * base + r[m - 2];
+            int d = int(std::min<long long>(r_top / b_top, base - 1));
+            long long over = add_mul(-d);
+            while (over < 0) {
+                d--;
+                over += add_mul(1);
+            }
+            while (geq_b()) {
+                d++;
+                add_mul(-1);
+            }
+            q[i] = d;
+            r.pop_back();
+        }
+        return {from_digits(std::move(q)), from_digits(std::move(r))};
+    }
+
+    // b の上位 k 桁を c としたときの base^(2k) / c の近似値（若干ずれるので後で補正）
+    // k が b の桁数より大きいときは、b の下に 0 を補って c とする
+    static BigInteger reciprocal(const BigInteger& b, int k)
+    {
+        const BigInteger c = shift(b, k - int(b.v_.size()));
+        if (k <= naive_divide_threshold) {
+            return divmod_naive(shift(1, 2 * k), c).first;
+        }
+        // 半分強の精度で求めた逆数から、Newton 法を 1 回まわして精度を倍にする
+        const int h = (k + 1) / 2 + 1;
+        const BigInteger x = shift(reciprocal(b, h), k - h);
+        return x + x - shift(x * x * c, -2 * k);
+    }
+
+    // Newton 法。O(M(n))
+    //   n: a を base 進数表記したときの桁数
+    //   M(n): n 桁同士の掛け算の計算量
+    static std::pair<BigInteger, BigInteger> divmod_newton(const BigInteger& a,
+                                                           const BigInteger& b)
+    {
+        const int n = a.v_.size(), m = b.v_.size(), k = n - m + 2;
+        BigInteger q = shift(a * reciprocal(b, k), -(k + m));
+        BigInteger r = a - q * b;
+        while (r.sgn_ < 0) {
+            --q;
+            r += b;
+        }
+        while (r >= b) {
+            ++q;
+            r -= b;
+        }
+        return {std::move(q), std::move(r)};
     }
 };
 
